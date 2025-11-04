@@ -128,12 +128,6 @@ Example BibTeX:
 
 ---
 
-## Contributing
-
-- Feel free to open issues for bug reports or feature requests.
-- Pull requests are welcome (new models, improved data pipelines, documentation, etc.).
-
----
 
 ## License
 
@@ -141,11 +135,5 @@ Example BibTeX:
 
 ---
 
-## Acknowledgements
-
-- Thanks to the open-source community and contributors of the datasets/tools used in this project.
-- Some implementations are inspired by common practices in image reconstruction and deep learning libraries.
-
----
 
 For questions or suggestions, please open an issue.
