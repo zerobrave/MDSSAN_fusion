@@ -4,7 +4,7 @@
 
 This repository provides a deep learning framework and a collection of models for hyperspectral image (HSI)  fusion with visible/RGB images.
 
-![Overview](./GA1_5cm@300dpi.png)
+![Overview](./GA.png)
 
 ---
 
