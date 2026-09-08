@@ -59,7 +59,6 @@ class ECABlock(nn.Module):
     """ECA module"""
     def __init__(self, channels, b=1, gamma=2):
         super(ECABlock,self).__init__()
-        #自适应卷积核大小, 可设置为7
         self.kernel_size = int(abs((math.log(channels, 2) + b) / gamma))
         if self.kernel_size % 2 ==0 :
             self.kernel_size = self.kernel_size + 1
@@ -78,7 +77,7 @@ class ECABlock(nn.Module):
 
         # Multi-scale information fusion
         z = self.sigmoid(z)
-        return y*z.expand_as(y)  #维度扩展
+        return y*z.expand_as(y)  
     
 class SABlock(nn.Module):
     """ Spatial self-attention block """
@@ -90,8 +89,8 @@ class SABlock(nn.Module):
 
     def forward(self, x, y):
         """
-        x: 输入特征以得到权重
-        y: 用于注意力的特征
+        x: input
+        y: feature to generate attention map
         """
         attention_mask = self.attention(x)
         features = self.conv(y)
@@ -99,15 +98,11 @@ class SABlock(nn.Module):
 
 class AttentionFusedBlock(nn.Module):
     """ SA and CA for fusion of aggregated features """
-    """ 空间特征和光谱特征在融合后做自注意力"""
     def __init__(self, in_channels, out_channels):
         super(AttentionFusedBlock, self).__init__()
-        #输入输出通道为融合特征的通道
         self.in_channels = in_channels   #2c
         self.out_channels = out_channels  #c
-
         self.concat = nn.Conv2d(2*in_channels, in_channels)
-
         self.CA = ECABlock(self.in_channels)
         self.SA = SABlock(self.in_channels, self.in_channels)
         self.aggregate1 = nn.Conv2d(in_channels=2*self.in_channels, out_channels=self.in_channels, kernel_size=3, padding=1)
@@ -126,7 +121,6 @@ class AttentionFusedBlock(nn.Module):
 
 class RefineAttentionBlock(nn.Module):
     """ RefineAttention. fuse to apply CA&SA """
-    """ 利用融合后特征对输入的空间和光谱特征进行细化"""
     def __init__(self, in_channels, out_channels):
         super(RefineAttentionBlock, self).__init__()
         self.in_channels = in_channels  #c
@@ -139,9 +133,9 @@ class RefineAttentionBlock(nn.Module):
 
     def forward(self, lr_feats, pan_feats, fused_feats):
         """
-        lr_feats: 相同尺度下低分辨率高光谱特征   c
-        pan_feats: 相同尺度下pan特征  c
-        fused_feats: 该尺度下concat的特征, 通道数为2c
+        lr_feats: c
+        pan_feats: c
+        fused_feats: 2c
         """
         #transform
         fused_feats = self.FE(fused_feats)  #c
@@ -158,7 +152,6 @@ class RefineAttentionBlock(nn.Module):
 
 class FastSpectralAttention(nn.Module):
     ''' Spectral transformer '''
-    #通过亚像素卷积来完成特征图的采样，将邻域像素的信息转为通道信息，完成相关性矩阵的计算后进一步进行逆亚像素卷积变回原始尺寸
     def __init__(self, n_feats, rate):
         super().__init__()
         self.num_features = n_feats
@@ -215,8 +208,8 @@ class FastSpectralAttention(nn.Module):
 class MDSSAN(nn.Module):
     def __init__(self, config):
         super(MDSSAN, self).__init__()
-        #考虑边缘光谱的align 
-        #抽取hsi三波段来和rgb做可见匹配,
+        # edge spectral align
+        # using three corresponding bands of hsi and rgb to make alignment
         self.in_channels = config[config["train_dataset"]]["spectral_bands"]
         self.out_channels = config[config["train_dataset"]]["spectral_bands"]
         self.factor = config[config["train_dataset"]]["factor"]
@@ -227,7 +220,7 @@ class MDSSAN(nn.Module):
 
         self.cs = 32
         self.num_layers = config['num_layers'] + 1
-        #self.num_layers = 3 + 1 #选择3层
+        # self.num_layers = 3 + 1 # 3 layers
         self.outchannels = list(itertools.repeat(self.cs, self.num_layers))
         self.num_blocks = len(self.outchannels)-1
         self.num_res_blocks = list(itertools.repeat(0, self.num_layers))
@@ -268,14 +261,14 @@ class MDSSAN(nn.Module):
         b_hsi = hsi_up[:, self.selected_sp_channels[0], :, :].unsqueeze(1)
         g_hsi = hsi_up[:, self.selected_sp_channels[1], :, :].unsqueeze(1)
         r_hsi = hsi_up[:, self.selected_sp_channels[2], :, :].unsqueeze(1)
-        rgb_hsi = torch.cat((r_hsi, g_hsi, b_hsi), dim=1) #抽取hsi 三波段用于可见匹配
+        rgb_hsi = torch.cat((r_hsi, g_hsi, b_hsi), dim=1) # band extraction of hsi 
         
         edge = self.edge_conv2d(rgb_hsi)
-        edge = edge[:, 0, :, :].unsqueeze(1)  #边缘提取
-        mask = self.mask #生成匹配搜索窗口， k为配准误差
+        edge = edge[:, 0, :, :].unsqueeze(1)  # edge extraction
+        mask = self.mask # search window, k refers to the registration error
         
         hsi_orig = hsi
-        rgb = self.msi(rgb) #通道对齐
+        rgb = self.msi(rgb) 
         hsi = self.hsi(hsi)  
         hsi_up_f = self.hsi(hsi_up)
         hsi_f = hsi_up
@@ -283,11 +276,11 @@ class MDSSAN(nn.Module):
            
         ref = []
         for i in range(self.num_blocks):
-            rgb = self.rgb_extractor[i](rgb)  #RFEM,残差特征提取
+            rgb = self.rgb_extractor[i](rgb)  
             hsi = self.hsi_extractor[i](hsi)
-            hsi_up_f = self.hsi_extractor[i](hsi_up_f) #hsi上采样以对齐spat_aggre
+            hsi_up_f = self.hsi_extractor[i](hsi_up_f) 
 
-            align_rgb = self.sampled_aggregation[i](rgb, hsi)  #sampling and aggregation得到spat_aggre
+            align_rgb = self.sampled_aggregation[i](rgb, hsi)  
             F_concat = torch.cat((hsi_up_f, align_rgb), dim=1)
             fused = self.fused[i](F_concat)
             refine = self.refined[i](hsi, rgb, fused)
