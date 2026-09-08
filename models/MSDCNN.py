@@ -1,10 +1,4 @@
-# -*- coding：UTF-8 -*-
-'''
-@Project : DIP-HyperKite-main
-@File ：MSDCNN.py
-@Author : Zerbo
-@Date : 2023/11/14 15:37
-'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
